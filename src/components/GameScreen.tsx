@@ -34,7 +34,7 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
 	  : [];
 	const votesForCurrent = claim ? claim.votesForCurrent : {};
 	const votedPlayers = voters.filter((p) => votesForCurrent[p.id]);
-	const waitingPlayers = voters.filter((p) => !votesForCurrent[p.id]);
+	//const waitingPlayers = voters.filter((p) => !votesForCurrent[p.id]);
 	const totalVoters = voters.length;
 	const votedCount = votedPlayers.length;
 	const allVoted = totalVoters > 0 && votedCount === totalVoters;
@@ -95,9 +95,6 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
           <Board
 			  card={card}
 			  onCellClick={handleToggleCell}
-			  highlightLine={
-				claim && claim.playerId === playerId ? claim.lineIndices : []
-			  }
 			  highlightCurrentIndex={
 				claim && claim.playerId === playerId ? currentCellIndex : null
 			  }
@@ -126,7 +123,6 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
 			<Board
 			  card={room.cards[claim.playerId]}
 			  onCellClick={() => {}}
-			  highlightLine={claim.lineIndices}
 			  highlightCurrentIndex={currentCellIndex}
 			  interactive={false}
 			/>

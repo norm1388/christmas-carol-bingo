@@ -15,8 +15,9 @@ export interface Card {
 
 export interface Claim {
   playerId: string;
-  lineIndices: number[]; // indices of the claimed line (e.g., [0,6,12,18,24])
-  votes: Record<string, "yes" | "no">; // playerId -> vote
+  lineIndices: number[];          // all 5 indices being claimed
+  currentCellPosition: number;    // which of the 5 we are currently voting on (0..4)
+  votesForCurrent: Record<string, "yes" | "no">; // votes for the current cell only
 }
 
 export interface Room {

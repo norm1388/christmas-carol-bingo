@@ -13,7 +13,6 @@ interface BoardProps {
 export function Board({
   card,
   onCellClick,
-  highlightLine = [],
   highlightCurrentIndex = null,
   interactive = true,
 }: BoardProps) {
@@ -30,7 +29,7 @@ export function Board({
     >
       {grid.map((imageId, index) => {
         const marked = marks[index];
-        const inLine = highlightLine.includes(index);
+        //const inLine = highlightLine.includes(index);
         const isCurrent = highlightCurrentIndex === index;
 
         const baseStyle: React.CSSProperties = {

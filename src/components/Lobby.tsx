@@ -21,7 +21,7 @@ export function Lobby({ room, isHost }: LobbyProps) {
 
   return (
     <div>
-      <h1>Room {code}</h1>
+      <h1>Room Code: {code}</h1>
       <h2>Lobby</h2>
       <p>Share this code with others to join.</p>
 
@@ -35,7 +35,21 @@ export function Lobby({ room, isHost }: LobbyProps) {
       </ul>
 
       {isHost ? (
-        <button onClick={handleStart}>Start Round</button>
+        <button
+		  onClick={handleStart}
+		  style={{
+			backgroundColor: "#6f9166",
+			color: "#f9fafb",
+			border: "none",
+			borderRadius: 6,
+			padding: "6px 12px",
+			fontWeight: 600,
+			cursor: "pointer",
+		  }}
+		>
+		  Start Round
+		</button>
+
       ) : (
         <p>Waiting for host to start…</p>
       )}

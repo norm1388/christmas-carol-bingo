@@ -1,4 +1,5 @@
 // src/components/GameScreen.tsx
+import { useEffect, useRef } from "react";
 import type { Room } from "../types";
 import {
   toggleMark,
@@ -10,6 +11,11 @@ import {
 import { Board } from "./Board";
 import { Scoreboard } from "./Scoreboard";
 
+const CHRISTMAS_GREEN_DARK = "#064e3b";   // deep green
+const CHRISTMAS_GREEN = "#16a34a";        // accept
+const CHRISTMAS_RED = "#b91c1c";          // reject
+const GOLD_ACCENT = "#fbbf24";            // border / accents
+
 interface GameScreenProps {
   room: Room;
   playerId: string;
@@ -20,24 +26,45 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
   const isHost = room.hostId === playerId;
   const claim = room.currentClaim ?? null;
   const code = room.code;
+  const prevStatusRef = useRef(room.status);
+  const claimPanelRef = useRef<HTMLDivElement | null>(null);
 
-  // Safely derive these; they’ll be 0 when there is no claim
+
+  // Safely derive claim-related info
   const totalCells = claim ? claim.lineIndices.length : 0;
   const currentCellNumber = claim ? claim.currentCellPosition + 1 : 0;
   const currentCellIndex =
-  claim && claim.lineIndices
-    ? claim.lineIndices[claim.currentCellPosition]
-    : null;
-	// voting status
-	const voters = claim
-	  ? Object.values(room.players).filter((p) => p.id !== claim.playerId)
-	  : [];
-	const votesForCurrent = claim ? claim.votesForCurrent : {};
-	const votedPlayers = voters.filter((p) => votesForCurrent[p.id]);
-	//const waitingPlayers = voters.filter((p) => !votesForCurrent[p.id]);
-	const totalVoters = voters.length;
-	const votedCount = votedPlayers.length;
-	const allVoted = totalVoters > 0 && votedCount === totalVoters;
+    claim && claim.lineIndices
+      ? claim.lineIndices[claim.currentCellPosition]
+      : null;
+
+  // Voting status
+  const voters = claim
+    ? Object.values(room.players).filter((p) => p.id !== claim.playerId)
+    : [];
+  const votesForCurrent = claim ? claim.votesForCurrent : {};
+  const votedPlayers = voters.filter((p) => votesForCurrent[p.id]);
+  const totalVoters = voters.length;
+  const votedCount = votedPlayers.length;
+  const allVoted = totalVoters > 0 && votedCount === totalVoters;
+
+  // Auto-scroll to claim panel when a Bingo enters review
+  useEffect(() => {
+	  const prevStatus = prevStatusRef.current;
+
+	  // Only scroll when we *enter* review mode from a different status
+	  if (room.status === "review" && prevStatus !== "review" && claimPanelRef.current) {
+		claimPanelRef.current.scrollIntoView({
+		  behavior: "smooth",
+		  block: "start",
+		});
+	  }
+
+	  // Update previous status for the next run
+	  prevStatusRef.current = room.status;
+	}, [room.status]);
+
+
 
   const handleToggleCell = async (index: number) => {
     if (room.status !== "in_round") return;
@@ -49,8 +76,6 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
     const result = await callBingo(code, playerId);
     if (result === "no-line") {
       alert("You do not have 5 in a row yet!");
-    } else {
-      // In your voice chat, you’d pause the song now.
     }
   };
 
@@ -60,15 +85,12 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
     await voteOnClaim(code, playerId, vote);
   };
 
-  // Host can check if all votes are in and resolve
-	const handleResolveIfReady = async () => {
-	  if (!claim) return;
-	  // allVoted is already computed above and used to disable the button
-	  await resolveClaim(code);
-	};
+  const handleResolveIfReady = async () => {
+    if (!claim) return;
+    await resolveClaim(code);
+  };
 
   const handleEndRound = async () => {
-    // Optional: move back to lobby
     await setRoomStatus(code, "lobby");
   };
 
@@ -85,102 +107,230 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
 
   return (
     <div>
-      <h1>Room {room.code}</h1>
+      <h1>Room Code: {room.code}</h1>
       <p>{statusText}</p>
       <Scoreboard room={room} />
 
-      <div style={{ display: "flex", gap: 24 }}>
-        <div>
-          <h2>Your Board</h2>
+      {/* Claim panel: always at the top when a Bingo is under review */}
+      {claim && (
+        <div
+          ref={claimPanelRef}
+          style={{
+            marginTop: 16,
+            padding: 12,
+            borderRadius: 10,
+            backgroundColor: CHRISTMAS_GREEN_DARK,
+            border: `2px solid ${GOLD_ACCENT}`,
+            color: "#fefce8",
+          }}
+        >
+          <h2 style={{ marginTop: 0, marginBottom: 4 }}>
+            Christmas Carol Bingo called!
+          </h2>
+          <p style={{ marginTop: 0 }}>
+            Claimed by{" "}
+            {room.players[claim.playerId]
+              ? room.players[claim.playerId].name
+              : claim.playerId}
+            . Voting on cell {currentCellNumber} of {totalCells}.
+          </p>
+
+          {/* Claimant's board (everyone sees this) */}
           <Board
-			  card={card}
-			  onCellClick={handleToggleCell}
-			  highlightCurrentIndex={
-				claim && claim.playerId === playerId ? currentCellIndex : null
-			  }
-			  interactive={room.status === "in_round"}
-			/>
-          <button
-            onClick={handleCallBingo}
-            disabled={room.status !== "in_round"}
-            style={{ marginTop: 12 }}
+            card={room.cards[claim.playerId]}
+            onCellClick={() => {}}
+            highlightLine={claim.lineIndices}
+            highlightCurrentIndex={currentCellIndex}
+            interactive={false}
+          />
+
+          {/* Voting buttons for non-claimants */}
+          {claim.playerId !== playerId && (
+            <div style={{ marginTop: 8 }}>
+              <p style={{ marginBottom: 8 }}>
+                Do you accept this cell as a valid match?
+              </p>
+              <button
+                onClick={() => handleVote("yes")}
+                style={{
+                  backgroundColor: CHRISTMAS_GREEN,
+                  color: "#f9fafb",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Accept
+              </button>
+              <button
+                onClick={() => handleVote("no")}
+                style={{
+                  marginLeft: 8,
+                  backgroundColor: CHRISTMAS_RED,
+                  color: "#f9fafb",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Reject
+              </button>
+            </div>
+          )}
+
+          {/* Voting status for everyone */}
+          <div
+            style={{
+              marginTop: 12,
+              padding: 8,
+              border: "1px solid rgba(248, 250, 252, 0.25)",
+              borderRadius: 6,
+              backgroundColor: "rgba(15,23,42,0.6)",
+            }}
           >
-            Call Christmas Carol Bingo!
-          </button>
+            <strong>Voting status:</strong>{" "}
+            {totalVoters === 0
+              ? "No other players to vote."
+              : `${votedCount} / ${totalVoters} votes received`}
+            {totalVoters > 0 && (
+              <ul style={{ marginTop: 4, paddingLeft: 20 }}>
+                {voters.map((p) => {
+                  const hasVoted = !!votesForCurrent[p.id];
+                  return (
+                    <li key={p.id}>
+                      {p.name}:{" "}
+                      <span
+                        style={{ color: hasVoted ? "#bbf7d0" : "#e5e7eb" }}
+                      >
+                        {hasVoted ? "Voted" : "Waiting"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Host-only resolve button, enabled only when all votes are in */}
+          {isHost && (
+            <div style={{ marginTop: 8 }}>
+              <button
+                onClick={handleResolveIfReady}
+                disabled={!allVoted}
+                style={{
+                  backgroundColor: allVoted ? GOLD_ACCENT : "#4b5563",
+                  color: "#111827",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 12px",
+                  fontWeight: 700,
+                  cursor: allVoted ? "pointer" : "default",
+                  opacity: allVoted ? 1 : 0.6,
+                }}
+              >
+                Resolve Claim
+                {totalVoters > 0
+                  ? ` (${votedCount}/${totalVoters} votes)`
+                  : ""}
+              </button>
+            </div>
+          )}
         </div>
+      )}
 
-        {claim && (
-		  <div>
-			<h2>Current Claim</h2>
-			<p>
-			  Claimed by{" "}
-			  {room.players[claim.playerId]
-				? room.players[claim.playerId].name
-				: claim.playerId}
-			  . Voting on cell {currentCellNumber} of {totalCells}.
-			</p>
 
-			<Board
-			  card={room.cards[claim.playerId]}
-			  onCellClick={() => {}}
-			  highlightCurrentIndex={currentCellIndex}
-			  interactive={false}
-			/>
+      {/* Your board (dimmed & locked during review) */}
+      <div style={{ marginTop: 24, position: "relative" }}>
+        <h2>Your Board</h2>
+        <Board
+          card={card}
+          onCellClick={handleToggleCell}
+          highlightLine={
+            claim && claim.playerId === playerId ? claim.lineIndices : []
+          }
+          highlightCurrentIndex={
+            claim && claim.playerId === playerId ? currentCellIndex : null
+          }
+          interactive={room.status === "in_round"}
+        />
+        <button
+          onClick={handleCallBingo}
+          disabled={room.status !== "in_round"}
+          style={{ marginTop: 12 }}
+        >
+          Call Christmas Carol Bingo!
+        </button>
 
-			{/* Voting prompt for non-claimants */}
-			{claim.playerId !== playerId && (
-			  <div style={{ marginTop: 8 }}>
-				<p>Do you accept this cell as a valid match?</p>
-				<button onClick={() => handleVote("yes")}>Accept</button>
-				<button onClick={() => handleVote("no")} style={{ marginLeft: 8 }}>
-				  Reject
-				</button>
-			  </div>
-			)}
+                {room.status === "review" && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.35)",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "rgba(15,23,42,0.9)", // dark slate
+                borderRadius: 10,
+                border: `1px solid ${GOLD_ACCENT}`,
+                padding: 12,
+                maxWidth: 320,
+                textAlign: "center",
+                color: "#f9fafb",
+              }}
+            >
+              <div style={{ marginBottom: 8, fontWeight: 700 }}>
+                Bingo under review
+              </div>
+              <div style={{ marginBottom: 8, fontSize: 14 }}>
+                A Christmas Carol Bingo has been called. Review the highlighted
+                board above to vote.
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  claimPanelRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+                }
+                style={{
+                  marginTop: 4,
+                  backgroundColor: CHRISTMAS_RED,
+                  color: "#f9fafb",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 10px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Scroll to review
+              </button>
+            </div>
+          </div>
+        )}
 
-			{/* Voting status visible to everyone (no one sees how others voted, only that they have) */}
-			<div style={{ marginTop: 12, padding: 8, border: "1px solid #ccc", borderRadius: 6 }}>
-			  <strong>Voting status:</strong>{" "}
-			  {totalVoters === 0
-				? "No other players to vote."
-				: `${votedCount} / ${totalVoters} votes received`}
-			  {totalVoters > 0 && (
-				<ul style={{ marginTop: 4, paddingLeft: 20 }}>
-				  {voters.map((p) => {
-					const hasVoted = !!votesForCurrent[p.id];
-					return (
-					  <li key={p.id}>
-						{p.name}:{" "}
-						<span style={{ color: hasVoted ? "green" : "gray" }}>
-						  {hasVoted ? "Voted" : "Waiting"}
-						</span>
-					  </li>
-					);
-				  })}
-				</ul>
-			  )}
-			</div>
-
-			{/* Host-only resolve button, disabled until all votes are in */}
-			{isHost && (
-			  <div style={{ marginTop: 8 }}>
-				<button
-				  onClick={handleResolveIfReady}
-				  disabled={!allVoted}
-				  style={{ opacity: allVoted ? 1 : 0.5 }}
-				>
-				  Resolve Claim{totalVoters > 0 ? ` (${votedCount}/${totalVoters} votes)` : ""}
-				</button>
-			  </div>
-			)}
-		  </div>
-		)}
       </div>
 
       <div style={{ marginTop: 16 }}>
         <p>
           Note: Use Discord/Zoom/etc. for voice chat and music. When someone
-          calls Bingo, pause the song in your call, review the claim here, then
+          calls Bingo, pause the song in your call, review the claim above, then
           resume.
         </p>
         <button onClick={handleEndRound} style={{ marginTop: 8 }}>

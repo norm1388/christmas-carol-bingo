@@ -35,7 +35,7 @@ export function Board({
 
         const baseStyle: React.CSSProperties = {
           border: isCurrent
-            ? "4px solid #d32f2f"
+            ? "4px solid #fa0707"
             : inLine
             ? "2px solid #f1b000"
             : "1px solid #888",
@@ -47,7 +47,7 @@ export function Board({
           cursor: interactive ? "pointer" : "default",
           fontSize: 40,
           lineHeight: 1,
-          padding: 4,
+          padding: 3,
           userSelect: "none",
           boxShadow: isCurrent
             ? "0 0 10px rgba(211,47,47,0.9)"
@@ -59,11 +59,11 @@ export function Board({
         };
 
         const bgColor = isCurrent
-          ? "#ffec99"
+          ? "#f5ca0f"
           : inLine
-          ? "#fff9c4"
+          ? "#ffea33"
           : marked
-          ? "#c8e6c9"
+          ? "#16fa1e"
           : "#f5f5f5";
 
         const display = getDisplayForId(imageId);
@@ -79,8 +79,8 @@ export function Board({
                 src={display.src}
                 alt={display.label}
                 style={{
-                  maxWidth: "100%",
-                  maxHeight: "100%",
+                  maxWidth: "95%",
+                  maxHeight: "95%",
                   objectFit: "contain",
                 }}
               />

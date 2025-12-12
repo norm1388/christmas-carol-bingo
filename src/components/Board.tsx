@@ -5,8 +5,8 @@ import { getDisplayForId } from "../imageDeck";
 interface BoardProps {
   card: Card;
   onCellClick: (index: number) => void;
-  highlightLine?: number[];               // all indices in the claimed line
-  highlightCurrentIndex?: number | null;  // the *one* cell currently being judged
+  highlightLine?: number[];
+  highlightCurrentIndex?: number | null;
   interactive?: boolean;
 }
 
@@ -47,7 +47,7 @@ export function Board({
           cursor: interactive ? "pointer" : "default",
           fontSize: 40,
           lineHeight: 1,
-          padding: 4,
+          padding: 2,
           userSelect: "none",
           boxShadow: isCurrent
             ? "0 0 10px rgba(211,47,47,0.9)"
@@ -59,12 +59,12 @@ export function Board({
         };
 
         const bgColor = isCurrent
-          ? "#ffec99" // current cell
+          ? "#ffec99"
           : inLine
-          ? "#fff9c4" // other cells in the claimed line
+          ? "#fff9c4"
           : marked
-          ? "#c8e6c9" // marked but not part of claim
-          : "#f5f5f5"; // default
+          ? "#c8e6c9"
+          : "#f5f5f5";
 
         const display = getDisplayForId(imageId);
 
@@ -74,15 +74,18 @@ export function Board({
             style={{ ...baseStyle, backgroundColor: bgColor }}
             onClick={() => interactive && onCellClick(index)}
           >
-            {/* If we eventually have an image src, show that; else use emoji */}
             {display.src ? (
               <img
                 src={display.src}
-                alt={imageId}
-                style={{ maxWidth: "80%", maxHeight: "80%" }}
+                alt={display.label}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                }}
               />
             ) : (
-              display.emoji
+              display.label
             )}
           </div>
         );

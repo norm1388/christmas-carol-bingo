@@ -47,7 +47,7 @@ export function Board({
           cursor: interactive ? "pointer" : "default",
           fontSize: 40,
           lineHeight: 1,
-          padding: 2,
+          padding: 4,
           userSelect: "none",
           boxShadow: isCurrent
             ? "0 0 10px rgba(211,47,47,0.9)"

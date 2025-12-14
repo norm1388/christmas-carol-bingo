@@ -283,7 +283,7 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
           >
             <div
               style={{
-                backgroundColor: "rgba(15,23,42,0.9)", // dark slate
+                backgroundColor: "rgba(15,23,42,0.9)", // dark  slate
                 borderRadius: 10,
                 border: `1px solid ${GOLD_ACCENT}`,
                 padding: 12,

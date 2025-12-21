@@ -260,7 +260,8 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
         <button
           onClick={handleCallBingo}
           disabled={room.status !== "in_round"}
-          style={{ marginTop: 12 }}
+          style={{ marginTop: 12,
+		  backgroundColor: CHRISTMAS_GREEN}}
         >
           Call Christmas Carol Bingo!
         </button>

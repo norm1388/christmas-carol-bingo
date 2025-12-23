@@ -6,6 +6,7 @@ import {
   onSnapshot,
   setDoc,
   updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import type { Room, Player, Card, Claim, RoomStatus } from "../types";
@@ -92,6 +93,8 @@ export async function createRoomWithPlayer(
       [playerId]: card,
     },
     currentClaim: null,
+	createdAt: serverTimestamp(),
+	updatedAt: serverTimestamp(),
   };
 
   await setDoc(roomRef, room);
@@ -122,6 +125,7 @@ export async function joinRoomWithPlayer(
   await updateDoc(roomRef, {
     [`players.${playerId}`]: player,
     [`cards.${playerId}`]: card,
+	updatedAt: serverTimestamp(),
   });
 }
 
@@ -131,7 +135,9 @@ export async function setRoomStatus(
   status: RoomStatus
 ): Promise<void> {
   const roomRef = doc(db, ROOMS_COLLECTION, roomCode);
-  await updateDoc(roomRef, { status });
+  await updateDoc(roomRef, { 
+	status,
+	updatedAt: serverTimestamp(),});
 }
 
 // Toggle mark on a cell for a player
@@ -153,6 +159,7 @@ export async function toggleMark(
 
   await updateDoc(roomRef, {
     [`cards.${playerId}.marks`]: marks,
+	updatedAt: serverTimestamp(),
   });
 }
 
@@ -204,6 +211,7 @@ const claim: Claim = {
 await updateDoc(roomRef, {
   status: "review",
   currentClaim: claim,
+	updatedAt: serverTimestamp(),
 });
 
   return "ok";
@@ -233,6 +241,7 @@ export async function voteOnClaim(
 
   await updateDoc(roomRef, {
     "currentClaim.votesForCurrent": updatedVotes,
+	updatedAt: serverTimestamp(),
   });
 }
 
@@ -283,6 +292,7 @@ export async function resolveClaim(roomCode: string): Promise<void> {
       [`cards.${playerId}.marks`]: newMarks,
       status: "in_round",
       currentClaim: null,
+	  updatedAt: serverTimestamp(),
     });
 
     return;
@@ -299,6 +309,7 @@ export async function resolveClaim(roomCode: string): Promise<void> {
       "currentClaim.currentCellPosition": nextPosition,
       "currentClaim.votesForCurrent": {},
       // Stay in review status for the next cell
+	  updatedAt: serverTimestamp(),
     });
 
     return;
@@ -327,6 +338,7 @@ async function awardBingoAndClearBoards(
     cards: newCards,
     status: "in_round",
     currentClaim: null,
+	updatedAt: serverTimestamp(),
   });
 }
 

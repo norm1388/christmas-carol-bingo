@@ -1,4 +1,5 @@
 // src/types.ts
+import type { FieldValue, Timestamp } from "firebase/firestore";
 
 export type RoomStatus = "lobby" | "in_round" | "review";
 
@@ -9,14 +10,14 @@ export interface Player {
 }
 
 export interface Card {
-  grid: string[];      // 25 image IDs
-  marks: boolean[];    // 25 booleans
+  grid: string[];   // 25 image IDs
+  marks: boolean[]; // 25 booleans
 }
 
 export interface Claim {
-  playerId: string;
-  lineIndices: number[];          // all 5 indices being claimed
-  currentCellPosition: number;    // which of the 5 we are currently voting on (0..4)
+  playerId: string;                // claimant player id
+  lineIndices: number[];           // the 5 indices being claimed
+  currentCellPosition: number;     // which of the 5 we are voting on (0..4)
   votesForCurrent: Record<string, "yes" | "no">; // votes for the current cell only
 }
 
@@ -28,5 +29,10 @@ export interface Room {
   players: Record<string, Player>;
   cards: Record<string, Card>;
 
-  currentClaim?: Claim | null;
+  // Prefer non-optional; you always set it to null when absent
+  currentClaim: Claim | null;
+
+  // Audit fields
+  createdAt?: Timestamp | FieldValue;
+  updatedAt?: Timestamp | FieldValue;
 }

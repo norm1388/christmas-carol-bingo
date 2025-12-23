@@ -24,7 +24,7 @@ interface GameScreenProps {
 export function GameScreen({ room, playerId }: GameScreenProps) {
   const card = room.cards[playerId];
   const isHost = room.hostId === playerId;
-  const claim = room.currentClaim ?? null;
+  const claim = room?.currentClaim;
   const code = room.code;
   const prevStatusRef = useRef(room.status);
   const claimPanelRef = useRef<HTMLDivElement | null>(null);
@@ -38,15 +38,22 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
       ? claim.lineIndices[claim.currentCellPosition]
       : null;
 
-  // Voting status
+  // Voting status (exclude claimant from voting)
   const voters = claim
     ? Object.values(room.players).filter((p) => p.id !== claim.playerId)
     : [];
-  const votesForCurrent = claim ? claim.votesForCurrent : {};
-  const votedPlayers = voters.filter((p) => votesForCurrent[p.id]);
-  const totalVoters = voters.length;
-  const votedCount = votedPlayers.length;
-  const allVoted = totalVoters > 0 && votedCount === totalVoters;
+
+  const votesForCurrent = claim?.votesForCurrent ?? {};
+
+  // Count only votes from eligible voters
+  const votedCount = claim
+    ? voters.reduce((count, p) => count + (votesForCurrent[p.id] ? 1 : 0), 0)
+    : 0;
+
+  const totalVoters = claim ? voters.length : 0;
+
+  // Ready when there are no voters (solo room) OR all voters have voted
+  const allVoted = !!claim && (totalVoters === 0 || votedCount === totalVoters);
 
   // Auto-scroll to claim panel when a Bingo enters review
   useEffect(() => {

@@ -10,6 +10,13 @@ interface LobbyProps {
 export function Lobby({ room, isHost }: LobbyProps) {
   const { code, players } = room;
 
+  const orderedPlayers = Object.values(players).sort((a, b) => {
+    const aj = a.joinedAt ?? 0;
+    const bj = b.joinedAt ?? 0;
+    if (aj !== bj) return aj - bj;
+    return a.name.localeCompare(b.name);
+  });
+
   const handleStart = async () => {
     try {
       await setRoomStatus(code, "in_round");
@@ -27,7 +34,7 @@ export function Lobby({ room, isHost }: LobbyProps) {
 
       <h3>Players</h3>
       <ul>
-        {Object.values(players).map((p) => (
+        {orderedPlayers.map((p) => (
           <li key={p.id}>
             {p.name} {p.id === room.hostId && "(Host)"} – Score: {p.score}
           </li>

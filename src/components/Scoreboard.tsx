@@ -6,9 +6,16 @@ interface ScoreboardProps {
 }
 
 export function Scoreboard({ room }: ScoreboardProps) {
-  const players = Object.values(room.players).sort(
-    (a, b) => b.score - a.score
-  );
+  const players = Object.values(room.players).sort((a, b) => {
+  const scoreDelta = b.score - a.score;
+  if (scoreDelta !== 0) return scoreDelta;
+
+  const aj = a.joinedAt ?? 0;
+  const bj = b.joinedAt ?? 0;
+  if (aj !== bj) return aj - bj;
+
+  return a.name.localeCompare(b.name);
+});
 
   return (
     <div style={{ marginBottom: 16 }}>

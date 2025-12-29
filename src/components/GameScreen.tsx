@@ -89,7 +89,7 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
   const handleVote = async (vote: "yes" | "no") => {
     if (!claim) return;
     if (claim.playerId === playerId) return; // caller doesn't vote
-    await voteOnClaim(code, playerId, vote);
+    await voteOnClaim(code, playerId, vote, claim.currentCellPosition);
   };
 
   const handleResolveIfReady = async () => {

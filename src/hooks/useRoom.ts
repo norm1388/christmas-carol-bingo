@@ -7,6 +7,7 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import type { Room, Player, Card, Claim, RoomStatus } from "../types";
@@ -78,6 +79,7 @@ export async function createRoomWithPlayer(
     id: playerId,
     name: playerName,
     score: 0,
+	joinedAt: Date.now(),
   };
 
   const card: Card = makeCard();
@@ -119,7 +121,12 @@ export async function joinRoomWithPlayer(
     return;
   }
 
-  const player: Player = { id: playerId, name: playerName, score: 0 };
+  const player: Player = {
+    id: playerId,
+    name: playerName,
+    score: 0,
+    joinedAt: Date.now(),
+  };
   const card: Card = makeCard();
 
   await updateDoc(roomRef, {
@@ -221,27 +228,29 @@ await updateDoc(roomRef, {
 export async function voteOnClaim(
   roomCode: string,
   voterId: string,
-  vote: "yes" | "no"
+  vote: "yes" | "no",
+  expectedCellPosition: number
 ): Promise<void> {
   const roomRef = doc(db, ROOMS_COLLECTION, roomCode);
-  const snap = await getDoc(roomRef);
-  if (!snap.exists()) return;
 
-  const room = snap.data() as Room;
-  const claim = room.currentClaim;
-  if (!claim) return;
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists()) return;
 
-  // Caller doesn’t vote on their own claim
-  if (claim.playerId === voterId) return;
+    const room = snap.data() as Room;
+    const claim = room.currentClaim;
+    if (!claim) return;
 
-  const updatedVotes = {
-    ...claim.votesForCurrent,
-    [voterId]: vote,
-  };
+    // Claimant does not vote
+    if (claim.playerId === voterId) return;
 
-  await updateDoc(roomRef, {
-    "currentClaim.votesForCurrent": updatedVotes,
-	updatedAt: serverTimestamp(),
+    // Prevent a vote landing after the host advanced to the next cell
+    if (claim.currentCellPosition !== expectedCellPosition) return;
+
+    tx.update(roomRef, {
+      [`currentClaim.votesForCurrent.${voterId}`]: vote,
+      updatedAt: serverTimestamp(),
+    });
   });
 }
 

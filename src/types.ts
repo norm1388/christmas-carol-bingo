@@ -7,6 +7,7 @@ export interface Player {
   id: string;
   name: string;
   score: number;
+  joinedAt?: number; // milliseconds since epoch; used only for stable ordering
 }
 
 export interface Card {

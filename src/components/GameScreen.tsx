@@ -23,7 +23,7 @@ interface GameScreenProps {
 
 export function GameScreen({ room, playerId }: GameScreenProps) {
   const card = room.cards[playerId];
-  const isHost = room.hostId === playerId;
+  // const isHost = room.hostId === playerId;
   const claim = room?.currentClaim;
   const code = room.code;
   const prevStatusRef = useRef(room.status);
@@ -71,6 +71,17 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
 	  prevStatusRef.current = room.status;
 	}, [room.status]);
 
+  // Auto-resolve a claime when all votes are received
+  useEffect(() => {
+    if (room.status !== "review") return;
+    if (!claim) return;
+    if (!allVoted) return;
+
+    // Any client may resolve; backend is transactional/idempotent
+    resolveClaim(code).catch(() => {
+      // optional: log or ignore
+    });
+  }, [room.status, claim?.currentCellPosition, allVoted, code]);
 
 
   const handleToggleCell = async (index: number) => {
@@ -92,11 +103,6 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
     await voteOnClaim(code, playerId, vote, claim.currentCellPosition);
   };
 
-  const handleResolveIfReady = async () => {
-    if (!claim) return;
-    await resolveClaim(code);
-  };
-
   const handleEndRound = async () => {
     await setRoomStatus(code, "lobby");
   };
@@ -107,9 +113,9 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
 
   const statusText =
     room.status === "in_round"
-      ? "Song playing – tap images that match lyrics."
+      ? "Song playing – tap images that match lyrics. You can tap one cell per each time a lyric is used"
       : room.status === "review"
-      ? "Bingo claimed – review in progress."
+      ? "Christmas Carol Bingo claimed – review in progress."
       : "Lobby";
 
   return (
@@ -221,31 +227,6 @@ export function GameScreen({ room, playerId }: GameScreenProps) {
               </ul>
             )}
           </div>
-
-          {/* Host-only resolve button, enabled only when all votes are in */}
-          {isHost && (
-            <div style={{ marginTop: 8 }}>
-              <button
-                onClick={handleResolveIfReady}
-                disabled={!allVoted}
-                style={{
-                  backgroundColor: allVoted ? GOLD_ACCENT : "#4b5563",
-                  color: "#111827",
-                  border: "none",
-                  borderRadius: 6,
-                  padding: "6px 12px",
-                  fontWeight: 700,
-                  cursor: allVoted ? "pointer" : "default",
-                  opacity: allVoted ? 1 : 0.6,
-                }}
-              >
-                Resolve Claim
-                {totalVoters > 0
-                  ? ` (${votedCount}/${totalVoters} votes)`
-                  : ""}
-              </button>
-            </div>
-          )}
         </div>
       )}
 

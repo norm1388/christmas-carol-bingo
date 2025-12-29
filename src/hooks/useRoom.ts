@@ -257,97 +257,95 @@ export async function voteOnClaim(
 // Resolve claim once all votes in; can be called by any client that detects it's time
 export async function resolveClaim(roomCode: string): Promise<void> {
   const roomRef = doc(db, ROOMS_COLLECTION, roomCode);
-  const snap = await getDoc(roomRef);
-  if (!snap.exists()) return;
-  const room = snap.data() as Room;
 
-  const claim = room.currentClaim;
-  if (!claim) return;
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists()) return;
 
-  const { playerId, lineIndices, currentCellPosition, votesForCurrent } = claim;
+    const room = snap.data() as Room;
+    const claim = room.currentClaim;
+    if (!claim) return;
 
-  const voters = Object.keys(room.players).filter((id) => id !== playerId);
+    const { playerId, lineIndices, currentCellPosition, votesForCurrent } = claim;
 
-  // If there are no other players, auto-accept the entire Bingo.
-  if (voters.length === 0) {
-    await awardBingoAndClearBoards(roomRef, room, playerId);
-    return;
-  }
+    // Everyone except claimant must vote
+    const voters = Object.keys(room.players).filter((id) => id !== playerId);
 
-  // Ensure everyone else has voted on THIS CELL
-  const allVoted = voters.every((id) => votesForCurrent[id]);
-  if (!allVoted) {
-    // Host tried to resolve early; do nothing.
-    return;
-  }
+    // Solo room: accept immediately
+    if (voters.length === 0) {
+      const newScore = (room.players[playerId]?.score ?? 0) + 1;
 
-  const yesCount = voters.filter((id) => votesForCurrent[id] === "yes").length;
-  const accepted = yesCount > voters.length / 2;
+      const newCards: Record<string, Card> = {};
+      for (const pid of Object.keys(room.players)) {
+        newCards[pid] = makeCard();
+      }
 
-  const currentCellIndex = lineIndices[currentCellPosition]; // the actual cell on the board
+      tx.update(roomRef, {
+        [`players.${playerId}.score`]: newScore,
+        cards: newCards,
+        status: "in_round",
+        currentClaim: null,
+        updatedAt: serverTimestamp(),
+      });
 
-  if (!accepted) {
-    // Cell rejected:
-    //  - Unset ONLY this one cell on the claimant's board
-    //  - All other marks remain as-is
-    //  - Stop review and return to in_round
-    const claimantCard = room.cards[playerId];
-    if (!claimantCard) return;
+      return;
+    }
 
-    const newMarks = [...claimantCard.marks];
-    newMarks[currentCellIndex] = false;
+    // Ensure all required voters have voted for THIS cell
+    const allVoted = voters.every((id) => votesForCurrent?.[id]);
+    if (!allVoted) return;
 
-    await updateDoc(roomRef, {
-      [`cards.${playerId}.marks`]: newMarks,
+    const yesCount = voters.filter((id) => votesForCurrent[id] === "yes").length;
+
+    // Tie goes to approval:
+    const accepted = yesCount >= voters.length / 2;
+
+    const currentCellIndex = lineIndices[currentCellPosition];
+
+    if (!accepted) {
+      const claimantCard = room.cards[playerId];
+      if (!claimantCard) return;
+
+      const newMarks = [...claimantCard.marks];
+      newMarks[currentCellIndex] = false;
+
+      tx.update(roomRef, {
+        [`cards.${playerId}.marks`]: newMarks,
+        status: "in_round",
+        currentClaim: null,
+        updatedAt: serverTimestamp(),
+      });
+
+      return;
+    }
+
+    const isLastCell = currentCellPosition >= lineIndices.length - 1;
+
+    if (!isLastCell) {
+      tx.update(roomRef, {
+        "currentClaim.currentCellPosition": currentCellPosition + 1,
+        "currentClaim.votesForCurrent": {},
+        updatedAt: serverTimestamp(),
+      });
+
+      return;
+    }
+
+    // Last cell accepted: award Bingo + reset
+    const newScore = (room.players[playerId]?.score ?? 0) + 1;
+
+    const newCards: Record<string, Card> = {};
+    for (const pid of Object.keys(room.players)) {
+      newCards[pid] = makeCard();
+    }
+
+    tx.update(roomRef, {
+      [`players.${playerId}.score`]: newScore,
+      cards: newCards,
       status: "in_round",
       currentClaim: null,
-	  updatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
-
-    return;
-  }
-
-  // Cell accepted.
-  const isLastCell = currentCellPosition >= lineIndices.length - 1;
-
-  if (!isLastCell) {
-    // Move to the next cell in the line and reset votes
-    const nextPosition = currentCellPosition + 1;
-
-    await updateDoc(roomRef, {
-      "currentClaim.currentCellPosition": nextPosition,
-      "currentClaim.votesForCurrent": {},
-      // Stay in review status for the next cell
-	  updatedAt: serverTimestamp(),
-    });
-
-    return;
-  }
-
-  // Last cell accepted: award Bingo, clear all marks, go back to in_round
-  await awardBingoAndClearBoards(roomRef, room, playerId);
-}
-
-async function awardBingoAndClearBoards(
-  roomRef: ReturnType<typeof doc>,
-  room: Room,
-  winnerId: string
-): Promise<void> {
-  const player = room.players[winnerId];
-  const newScore = (player?.score ?? 0) + 1;
-
-  // NEW: give every player a fresh random card
-  const newCards: Record<string, Card> = {};
-  for (const pid of Object.keys(room.players)) {
-    newCards[pid] = makeCard();
-  }
-
-  await updateDoc(roomRef, {
-    [`players.${winnerId}.score`]: newScore,
-    cards: newCards,
-    status: "in_round",
-    currentClaim: null,
-	updatedAt: serverTimestamp(),
   });
 }
 
